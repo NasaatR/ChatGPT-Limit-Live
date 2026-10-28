@@ -10,7 +10,7 @@ function ui(){const ctx=vm.createContext({LimitLiveCore:C,navigator:{language:'r
 test('reset UI distinguishes zero, missing data and stale availability',()=>{const u=ui();assert.match(u.resetsHTML(null),/did not return reset data/);assert.match(u.resetsHTML({available:0,detailsKnown:false,details:[]}),/No resets available/);assert.match(u.resetsHTML({available:2,detailsKnown:false,details:[]},true),/Last known data/);assert.match(u.resetsHTML({available:2,detailsKnown:false,details:[]}),/chatgpt.com\/settings\/usage/)});
 test('server reset labels are escaped in the popup',()=>{assert.match(ui().resetsHTML({available:1,detailsKnown:true,details:[{title:'<script>alert(1)</script>',expiresAt:null}]}),/&lt;script&gt;/)});
 
-test('reset title, expiration and direct usage link are visible without a disclosure',()=>{const html=ui().resetsHTML({available:1,detailsKnown:true,details:[{title:'Full reset (Weekly + 5 hr)',expiresAt:Date.parse('2027-02-14T12:30:00Z')}]});assert.doesNotMatch(html,/<details|<summary/);assert.match(html,/Full reset \(Weekly \+ 5 hr\)/);assert.match(html,/2027/);assert.match(html,/Expires/);assert.match(html,/class="reset-credit"[^>]*href="https:\/\/chatgpt.com\/settings\/usage"/)});
+test('reset title, expiration and direct usage link are visible without a disclosure',()=>{const html=ui().resetsHTML({available:1,detailsKnown:true,details:[{title:'Full reset (Weekly + 5 hr)',expiresAt:Date.parse('2027-02-14T12:30:00Z')}]});assert.match(html,/<details class="reset-help">/);assert.ok(html.indexOf('Full reset')<html.indexOf('<details'));assert.match(html,/Full reset \(Weekly \+ 5 hr\)/);assert.match(html,/2027/);assert.match(html,/Use by/);assert.match(html,/class="reset-credit"[^>]*href="https:\/\/chatgpt.com\/settings\/usage"/)});
 test('track color is adjacent to the Show track switch instead of hidden in Colors',()=>{const html=ui().controls({mode:false}),geometry=html.slice(html.indexOf('id="geometryGroup"'),html.indexOf('id="colorsGroup"'));assert.match(geometry,/id="track"/);assert.match(geometry,/id="hex_track"/);assert.match(geometry,/Track color/);assert.equal((html.match(/id="hex_track"/g)||[]).length,1)});
 
 const withResets=resets=>({status:'current',updatedAt:Date.now(),usage:{plan:'business',windows:[{kind:'weekly',remaining:58,resetAt:Date.now()+86400000}],additional:[],resets}});
@@ -23,10 +23,10 @@ test('all reset navigation uses the current official Usage route with a manual f
 });
 test('hover includes full banked reset expiration separately from the next allowance refresh',()=>{
  const at=Date.now()+86400000,u=ui(),html=u.tooltipHTML(withResets({available:1,detailsKnown:true,details:[{title:'Full reset',expiresAt:at}]}));
- assert.match(html,/Resets in/);assert.match(html,/Available resets/);assert.match(html,/Full reset/);assert.match(html,/Expires in/);
+ assert.match(html,/Refreshes in/);assert.match(html,/Saved resets/);assert.match(html,/Full reset/);assert.match(html,/Expires in/);
  assert.ok(html.includes(`datetime="${new Date(at).toISOString()}"`));assert.match(html,new RegExp(String(new Date(at).getFullYear())));
  assert.doesNotMatch(html,/<a|<button|<details/);
- u.setLanguage('ru');const ru=u.tooltipHTML(withResets({available:1,detailsKnown:true,details:[{title:'Full reset',expiresAt:at}]}));assert.match(ru,/Истекает через/);assert.match(ru,/Последний сброс аккаунта/);
+ u.setLanguage('ru');const ru=u.tooltipHTML(withResets({available:1,detailsKnown:true,details:[{title:'Full reset',expiresAt:at}]}));assert.match(ru,/Срок истечёт через/);assert.doesNotMatch(ru,/Последний сброс аккаунта/);
 });
 test('identical reset offers share a row and earliest expiry is shown first without mutating data',()=>{
  const sooner={title:'Sooner',expiresAt:Date.now()+3600000},later={title:'Later',expiresAt:Date.now()+86400000};
@@ -42,7 +42,7 @@ test('hover marks expired credits explicitly and does not present missing dates 
 });
 test('last account reset is explicitly unavailable rather than inferred from a credit grant or next reset',()=>{
  const granted='2026-10-01T09:12:00Z',r=C.resetCredits({available_count:1,credits:[{status:'available',granted_at:granted,title:'Full reset'}]}),u=ui();
- for(const html of [u.resetsHTML(r),u.tooltipHTML(withResets(r))]){assert.match(html,/Last account reset/);assert.match(html,/Not provided/);assert.doesNotMatch(html,/Oct 1|09:12|2026-10-01/);}
+ const popup=u.resetsHTML(r),hover=u.tooltipHTML(withResets(r));assert.match(popup,/Last account reset/);assert.match(popup,/Not provided/);assert.ok(popup.indexOf('Last account reset')>popup.indexOf('<details'));assert.doesNotMatch(hover,/Last account reset/);for(const html of [popup,hover])assert.doesNotMatch(html,/Oct 1|09:12|2026-10-01/);
  assert.match(u.resetsHTML(r),/Usage & billing → History/);
 });
 test('hover escapes reset titles and indicates incomplete expiration details',()=>{

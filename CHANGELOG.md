@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.8.0 — 2026-10-29
+
+- Redesign Overview around allowance, saved resets and page-widget controls with a compact footer and clearer Refreshes in / Use by labels. Keep reset titles and exact expirations visible; move fallback/history explanations into History & help and remove unavailable-history clutter from hover.
+- Replace the long settings surface with keyboard-accessible Widget, Colors, Hover, App and Backup categories. Keep navigation visible while scrolling, group color controls by purpose, and preview widget appearance using current allowance. Category changes flush/close the color editor; language changes preserve the selected category. Existing preference/import schemas stay compatible.
+- Consolidate the shared stylesheet, removing superseded layouts and repeated overrides (about 29% less CSS); preserve circle/Pill geometry, dark neutrals, manual colors, drag bounds, tooltip bounds and reduced motion.
+- Observe only the completion status of successful same-origin reset-consume requests. Emit a debounced refresh hint without reading/cloning bodies; bypass young usage/detail caches for an independent GET. Preserve backoff, account validation and normal polling. No reset is performed by the extension.
+- Research: the native web-sidebar Work indicator was documented August 7, 2026. Inspect its rounded accessible percentage/menu and verify Manage usage reaches Settings → Usage in a signed-in browser. Do not infer decimal/server data from its ring or couple functionality to native labels.
+- Validation: 157 automated cases and syntax checks. Built-in ChatGPT navigation was observed live; extension Chrome APIs/events remain mocked. Extension visual QA was blocked because the browser could not reach the local preview server; no live reset was consumed.
+
 ## 1.7.0 — 2026-10-23
 
 - Replace the retired `/codex/settings/usage` destination with the current official `https://chatgpt.com/settings/usage`; label the action Open Usage and include a manual Settings → Usage fallback plus account/workspace guidance. Signed-in navigation remains unverified here.

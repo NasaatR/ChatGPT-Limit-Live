@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ChatGPT Limit Live",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "minimum_chrome_version": "111",
   "description": "Automatically shows server-reported Work/Codex allowance on ChatGPT. Account-aware weekly and short-window meters.",
   "permissions": [

@@ -44,7 +44,7 @@ test('unavailable reset detail endpoint preserves current percentage and server 
 test('switching accounts cannot reuse another account banked resets',async()=>{const r=runtime({resetCount:2});await r.settle();r.set('a2','u2',60);r.resetCount(0);await r.advance(30000);const snapshot=r.requests.filter(r=>r.message?.type==='limit-live-snapshot').at(-1).message.state;assert.equal(snapshot.usage.resets.available,0);assert.equal(snapshot.usage.resets.details.length,0)});
 
 test('page widget exposes no hide buttons in either circle or pill mode',async()=>{const r=runtime();await r.settle();assert.doesNotMatch(r.root.innerHTML.split('</style>')[1],/id="hide"|id="pillHide"|<button/);await r.settings({collapsed:true});assert.equal(r.els.has('hide'),false);assert.equal(r.els.has('pillHide'),false)});
-test('language and tooltip dimensions update in an already running ChatGPT tab',async()=>{const r=runtime();await r.settle();assert.match(r.els.get('orb').attrs['aria-label'],/Weekly/);await r.settings({language:'ru',tooltipFontSize:17,tooltipWidth:350});assert.match(r.els.get('orb').attrs['aria-label'],/Неделя/);const host=r.context.document.createElement();assert.equal(host.lang,'ru');assert.equal(host.style['--tip-font'],'17px');assert.equal(host.style['--tip-width'],'350px');r.els.get('orb').pointerenter();await r.advance(250);assert.match(r.els.get('orbTooltip').innerHTML,/Сброс через/)});
+test('language and tooltip dimensions update in an already running ChatGPT tab',async()=>{const r=runtime();await r.settle();assert.match(r.els.get('orb').attrs['aria-label'],/Weekly/);await r.settings({language:'ru',tooltipFontSize:17,tooltipWidth:350});assert.match(r.els.get('orb').attrs['aria-label'],/Неделя/);const host=r.context.document.createElement();assert.equal(host.lang,'ru');assert.equal(host.style['--tip-font'],'17px');assert.equal(host.style['--tip-width'],'350px');r.els.get('orb').pointerenter();await r.advance(250);assert.match(r.els.get('orbTooltip').innerHTML,/Обновится через/)});
 
 test('unchanged UI ticks reuse the sanitized snapshot without duplicate normalization',async()=>{const r=runtime();await r.settle();let calls=0;const original=r.context.LimitLiveCore.snapshot;r.context.LimitLiveCore.snapshot=(...args)=>{calls++;return original(...args)};const before=r.requests.filter(r=>r.message?.type==='limit-live-snapshot').length;await r.advance(15000);assert.equal(calls,0);assert.equal(r.requests.filter(r=>r.message?.type==='limit-live-snapshot').length,before)});
 
@@ -60,5 +60,16 @@ test('a credit expiry bypasses the five-minute detail cache once without repeate
 });
 test('actual hover exposes available credit expiry without opening the extension popup',async()=>{
  const r=runtime({resetCount:1});await r.settle();r.els.get('orb').pointerenter();await r.advance(250);
- const html=r.els.get('orbTooltip').innerHTML;assert.match(html,/Full reset/);assert.match(html,/Expires in/);assert.match(html,/<time datetime=/);assert.match(html,/Last account reset/);assert.doesNotMatch(html,/private-credit-id/);
+ const html=r.els.get('orbTooltip').innerHTML;assert.match(html,/Full reset/);assert.match(html,/Expires in/);assert.match(html,/<time datetime=/);assert.doesNotMatch(html,/Last account reset/);assert.doesNotMatch(html,/private-credit-id/);
+});
+
+test('a native reset hint bypasses young usage and credit caches, then resumes normal caching',async()=>{
+ const r=runtime({resetCount:1});await r.settle();r.set('a1','u1',0);r.message({type:'reset'});await r.advance(5000);
+ assert.equal(r.els.get('orbPercent').textContent,'100%');assert.equal(r.requests.filter(x=>x.url?.endsWith('/wham/usage')).length,2);
+ assert.equal(r.requests.filter(x=>x.url?.endsWith('/rate-limit-reset-credits')).length,2);
+ r.message({type:'activity'});await r.advance(5000);assert.equal(r.requests.filter(x=>x.url?.endsWith('/wham/usage')).length,2);
+});
+test('spoofed native hints cannot supply percentages or bypass error backoff',async()=>{
+ const r=runtime({failure:429});await r.settle();for(let i=0;i<20;i++)r.message({type:'reset',value:{remaining:100}});await r.advance(5000);
+ assert.equal(r.requests.filter(x=>x.url?.endsWith('/wham/usage')).length,1);assert.doesNotMatch(r.els.get('orbPercent').textContent,/100%/);
 });

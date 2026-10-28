@@ -8,6 +8,7 @@ let root,host,layout,hoverDetails,pillRing,refs={};
 const styleCache={};
 function css(key,value){if(styleCache[key]===value)return;styleCache[key]=value;host.style.setProperty(key,value);}
 let lastPublished=null,cachedPublicState,cachedUsage,cachedStatus,cachedAt,cachedInterval;
+let nativeResetRevision=0,checkedResetRevision=0;
 function publicState(){
   const state=monitor.state;
   if(!cachedPublicState||cachedUsage!==state.usage||cachedStatus!==state.status||cachedAt!==state.updatedAt||cachedInterval!==cfg.interval){
@@ -47,7 +48,8 @@ async function usage(auth,signal){
   const run=async()=>{
     if(signal.aborted)throw new DOMException('Aborted','AbortError');
     const entries=await get('limitLiveCache')||{};const cached=entries[hash];
-    if(cached&&cached.at<=Date.now()&&Date.now()-cached.at<20000){try{return {normalized:C.normalize(cached.raw),updatedAt:cached.at}}catch{}}
+    const resetRevision=nativeResetRevision,resetPending=resetRevision!==checkedResetRevision;
+    if(!resetPending&&cached&&cached.at<=Date.now()&&Date.now()-cached.at<20000){try{return {normalized:C.normalize(cached.raw),updatedAt:cached.at}}catch{}}
     const headers={'authorization':'Bearer '+auth.token,'chatgpt-account-id':auth.account};
     const raw=await json('/backend-api/wham/usage',headers,signal);
     const normalized=C.normalize(raw);const at=Date.now();let resetsCheckedAt=0;
@@ -55,7 +57,7 @@ async function usage(auth,signal){
       let previous=null;try{previous=C.normalize(cached?.raw).resets}catch{}
       // Recheck once when a cached credit reaches its expiry, even if the count lags.
       const crossedExpiry=previous?.details.some(c=>c.expiresAt>cached.resetsCheckedAt&&c.expiresAt<=at);
-      if(cached?.resetsCheckedAt<=at&&at-cached.resetsCheckedAt<300000&&!crossedExpiry&&previous?.available===normalized.resets.available){
+      if(!resetPending&&cached?.resetsCheckedAt<=at&&at-cached.resetsCheckedAt<300000&&!crossedExpiry&&previous?.available===normalized.resets.available){
         resetsCheckedAt=cached.resetsCheckedAt;
         if(previous.detailsKnown)normalized.resets=previous;
       }else{
@@ -67,6 +69,7 @@ async function usage(auth,signal){
     if(signal.aborted)throw new DOMException('Aborted','AbortError');
     const next=Object.fromEntries(Object.entries(entries).filter(([,v])=>typeof v?.at==='number'&&at-v.at<3600000).sort((a,b)=>b[1].at-a[1].at).slice(0,7));next[hash]={raw:wire(normalized),at,resetsCheckedAt};
     try{await chrome.storage.local.set({limitLiveCache:next})}catch{/* Monitoring works without a cache. */}
+    checkedResetRevision=resetRevision;
     return {normalized,updatedAt:at};
   };
   return navigator.locks?navigator.locks.request('chatgpt-limit-live-usage-v1',{signal},run):run();
@@ -131,6 +134,8 @@ window.addEventListener('message',event=>{
   if(type==='context'&&typeof value==='string'&&/^[\w-]{1,128}$/.test(value)&&monitor.hint!==value){monitor.invalidate(value);request(0)}
   else if(type==='session'){monitor.invalidate(monitor.hint);request(0)}
   else if(type==='activity')request(3000);
+  // A native reset completion is only a refresh hint. Percentages still come from our GET.
+  else if(type==='reset'){nativeResetRevision++;request(0);}
 });
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)request(0);publish(true);schedule()});
 window.addEventListener('focus',()=>{request(0);publish(true)});window.addEventListener('online',()=>request(0));window.addEventListener('offline',()=>{monitor.emit({status:'offline'});schedule()});
